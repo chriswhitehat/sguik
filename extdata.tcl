@@ -25,9 +25,9 @@ proc GetRuleInfo {} {
         set event_id [$CUR_SEL_PANE(name) getcells $selectedIndex,alertID]
         set genID $generatorListMap($event_id)
 
-        if { $genID != "1" } {
+	if { $genID != "1" && $genID != "3" } {
 
-            # For the detection engine only. Generator ID 1.
+            # For the detection engine only. Generator ID 1 and 3 (SO).
             ClearRuleText
             InsertRuleData "Rules and signatures are not available for the generator ID ${genID}."
             return
@@ -188,8 +188,40 @@ proc CopyIP { arg } {
         }
 
         # Copy to clipboard
-        clipboard clear
-        clipboard append $ipAddr
+	clipboard clear
+	clipboard append $ipAddr
+
+    }
+
+}
+
+proc GetELSAIP { arg } {
+
+    global DEBUG BROWSER_PATH CUR_SEL_PANE ACTIVE_EVENT MULTI_SELECT SERVERHOSTSELECTED
+
+    if { $ACTIVE_EVENT && !$MULTI_SELECT} {
+
+        set selectedIndex [$CUR_SEL_PANE(name) curselection]
+
+        if { $arg == "srcip" } {
+            set ipAddr [$CUR_SEL_PANE(name) getcells $selectedIndex,srcip]
+        } else {
+            set ipAddr [$CUR_SEL_PANE(name) getcells $selectedIndex,dstip]
+        }
+
+        if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
+
+            # Launch browser
+            exec $BROWSER_PATH https://$SERVERHOSTSELECTED:3154/?query_string="$ipAddr"%20groupby:program &
+
+        } else {
+
+            tk_messageBox -type ok -icon warning -message\
+             "$BROWSER_PATH does not exist or is not executable. Please update the BROWSER_PATH variable\
+              to point your favorite browser."
+            puts "Error: $BROWSER_PATH does not exist or is not executable."
+
+        }
 
     }
 
@@ -646,7 +678,7 @@ proc XscriptDebugMsg { winName data } {
 
 proc PcapAvailable { socketID sKey fileName } {
 
-    global WIRESHARK_STORE_DIR WIRESHARK_PATH
+    global WIRESHARK_STORE_DIR WIRESHARK_PATH WIRESHARK_OPTIONS
 
     # Windows doesn't like colons
     regsub -all {:} [file tail $fileName] {_} fileName
@@ -686,7 +718,7 @@ proc PcapAvailable { socketID sKey fileName } {
 
 proc PcapCopyFinished { fileName outfileID dataSocketID bytes {error {}} } {
 
-    global WIRESHARK_PATH
+    global WIRESHARK_PATH WIRESHARK_OPTIONS
 
     # Data copy finished
     catch {close $outfileID}
@@ -699,7 +731,7 @@ proc PcapCopyFinished { fileName outfileID dataSocketID bytes {error {}} } {
     }
 
     
-    eval exec $WIRESHARK_PATH -n -r $fileName &
+    eval exec $WIRESHARK_PATH $WIRESHARK_OPTIONS $fileName &
 
     InfoMessage\
      "Raw file is stored in $fileName. Please delete when finished"
@@ -707,20 +739,20 @@ proc PcapCopyFinished { fileName outfileID dataSocketID bytes {error {}} } {
 }
 
 proc WiresharkDataPcap { socketID fileName bytes } {
-  global WIRESHARK_STORE_DIR WIRESHARK_PATH
+  global WIRESHARK_STORE_DIR WIRESHARK_PATH WIRESHARK_OPTIONS
   set outFileID [open $WIRESHARK_STORE_DIR/$fileName w]
   fconfigure $outFileID -translation binary
   fconfigure $socketID -translation binary
   fcopy $socketID $outFileID -size $bytes
   close $outFileID
   fconfigure $socketID -encoding utf-8 -translation {auto crlf}
-  eval exec $WIRESHARK_PATH -n -r $WIRESHARK_STORE_DIR/$fileName &
+  eval exec $WIRESHARK_PATH $WIRESHARK_OPTIONS $WIRESHARK_STORE_DIR/$fileName &
   InfoMessage\
    "Raw file is stored in $WIRESHARK_STORE_DIR/$fileName. Please delete when finished"
 }
 # Archiving this till I know for sure binary xfers are working correctly
 proc WiresharkDataBase64 { fileName data } {
-  global WIRESHARK_PATH WIRESHARK_STORE_DIR b64FileID DEBUG
+  global WIRESHARK_PATH WIRESHARK_OPTIONS WIRESHARK_STORE_DIR b64FileID DEBUG
   if { $data == "BEGIN" } {
     set tmpFileName $WIRESHARK_STORE_DIR/${fileName}.base64
     set b64FileID($fileName) [open $tmpFileName w]
@@ -735,7 +767,8 @@ proc WiresharkDataBase64 { fileName data } {
       close $outFileID
       close $inFileID
       file delete $WIRESHARK_STORE_DIR/${fileName}.base64
-      eval exec $WIRESHARK_PATH -n -r $WIRESHARK_STORE_DIR/$fileName &
+
+      eval exec $WIRESHARK_PATH $WIRESHARK_OPTIONS $WIRESHARK_STORE_DIR/$fileName &
       InfoMessage "Raw file is stored in $WIRESHARK_STORE_DIR/$fileName. Please delete when finished"
     }
   } else {
@@ -748,7 +781,7 @@ proc WiresharkDataBase64 { fileName data } {
 proc GetXscript { type force } {
 
     global ACTIVE_EVENT SERVERHOST XSCRIPT_SERVER_PORT DEBUG CUR_SEL_PANE XSCRIPTDATARCVD
-    global socketWinName SESSION_STATE WIRESHARK_STORE_DIR WIRESHARK_PATH
+    global socketWinName SESSION_STATE WIRESHARK_STORE_DIR WIRESHARK_PATH WIRESHARK_OPTIONS
 
     if {!$ACTIVE_EVENT} {return}
 
@@ -814,7 +847,11 @@ proc GetXscript { type force } {
     } elseif { $type == "wireshark" } {
 
         # If WIRESHARK_PATH isn't set use the default location /usr/sbin/wireshark
-        if { ![info exists WIRESHARK_PATH] } { set WIRESHARK_PATH /usr/sbin/wireshark }
+        #if { ![info exists WIRESHARK_PATH] } { set WIRESHARK_PATH /usr/sbin/wireshark }
+
+	# Added by Doug
+	set WIRESHARK_PATH /usr/bin/wireshark
+	set WIRESHARK_OPTIONS "-n -r"
 
         # Make sure the file exists and is executable.
         if { ![file exists $WIRESHARK_PATH] || ![file executable $WIRESHARK_PATH] } {
@@ -836,7 +873,7 @@ proc GetXscript { type force } {
     } elseif { $type == "networkminer" } {
 
         set WIRESHARK_PATH /opt/networkminer/networkminer
-        set WIRESHARK_OPTIONS ""
+	set WIRESHARK_OPTIONS ""
 
         # Make sure the file exists and is executable.
         if { ![file exists $WIRESHARK_PATH] || ![file executable $WIRESHARK_PATH] } {
@@ -902,7 +939,7 @@ proc GetBroscript { type force } {
             wm deiconify $xscriptWinName
             return
         }
-
+        
         set SESSION_STATE($xscriptWinName) HDR
         XscriptDebugMsg $xscriptWinName\
             "Your request has been sent to the server.\nPlease be patient as this can take some time."
@@ -910,7 +947,7 @@ proc GetBroscript { type force } {
         set XSCRIPTDATARCVD($xscriptWinName) 0
 
         SendToSguild [list BroScriptRequest $sensor $sensorID $xscriptWinName $timestamp $srcIP $srcPort $dstIP $dstPort $proto $force]
-
+ 
          if {$DEBUG} {
             puts "Xscript Request sent: [list $sensor $sensorID $xscriptWinName $timestamp $srcIP $srcPort $dstIP $dstPort $force]"
             puts "Xscript Request sent: [list $sensor $sensorID $xscriptWinName $timestamp $srcIP $srcPort $dstIP $dstPort $proto $force]"
@@ -919,9 +956,8 @@ proc GetBroscript { type force } {
 
 }
 
-
 proc CopyDone { socketID tmpFileID tmpFile bytes {error {}} } {
-  global DEBUG WIRESHARK_PATH
+  global DEBUG WIRESHARK_PATH WIRESHARK_OPTIONS
   close $tmpFileID
   close $socketID
   if {$DEBUG} {puts "Bytes Transfered: $bytes"}
@@ -929,7 +965,8 @@ proc CopyDone { socketID tmpFileID tmpFile bytes {error {}} } {
     ErrorMessage "No data available." 
     file delete $tmpFileID
   } else {
-    eval exec $WIRESHARK_PATH -n -r $tmpFile &
+
+    eval exec $WIRESHARK_PATH $WIRESHARK_OPTIONS $tmpFile &
     InfoMessage "Raw file is stored in $tmpFile. Please delete when finished"
   }
 }
@@ -1145,8 +1182,6 @@ proc CreateStatusLabel { status tableName row col win } {
 
 proc EmptyString val { return "" }
 
-
-
 proc CopyAlertID { arg } {
 
     global DEBUG BROWSER_PATH CUR_SEL_PANE ACTIVE_EVENT MULTI_SELECT
@@ -1186,7 +1221,7 @@ proc SplunkAlertID { arg } {
         if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
 
                  # Launch browser
-            exec $BROWSER_PATH https://:8000/en-US/app/cirta/sguil_client?form.selAlertID=$sensorID.$cnxID&form.selHost1=$ipAddr1&form.selHost2=$ipAddr2&form.selPort1=$ipPort1&form.selPort2=$ipPort2&form.selSignature=$eventMsg&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
+            exec $BROWSER_PATH https://lwbspl01094p08:8000/en-US/app/cirta/sguil_client?form.selAlertID=$sensorID.$cnxID&form.selHost1=$ipAddr1&form.selHost2=$ipAddr2&form.selPort1=$ipPort1&form.selPort2=$ipPort2&form.selSignature=$eventMsg&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
 
         } else {
 
@@ -1225,7 +1260,7 @@ proc SplunkIPQuery { side } {
         if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
 
             # Launch browser
-        exec $BROWSER_PATH https://:8000/en-US/app/cirta/sguil_client?form.selHost1=$ipAddr1&form.selHost2=$ipAddr2&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
+        exec $BROWSER_PATH https://lwbspl01094p08:8000/en-US/app/cirta/sguil_client?form.selHost1=$ipAddr1&form.selHost2=$ipAddr2&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
 
         } else {
 
@@ -1265,7 +1300,7 @@ proc SplunkPortQuery { arg } {
         if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
 
             # Launch browser
-        exec $BROWSER_PATH https://:8000/en-US/app/cirta/sguil_client?form.selPort1=$ipPort1&form.selPort2=$ipPort2&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
+        exec $BROWSER_PATH https://lwbspl01094p08:8000/en-US/app/cirta/sguil_client?form.selPort1=$ipPort1&form.selPort2=$ipPort2&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
 
         } else {
 
@@ -1295,7 +1330,7 @@ proc SplunkSigQuery {} {
         if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
 
             # Launch browser
-        exec $BROWSER_PATH https://:8000/en-US/app/cirta/sguil_client?form.selSignature=$eventMsg&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
+        exec $BROWSER_PATH https://lwbspl01094p08:8000/en-US/app/cirta/sguil_client?form.selSignature=$eventMsg&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
 
         } else {
 
