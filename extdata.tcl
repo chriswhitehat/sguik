@@ -1221,7 +1221,7 @@ proc SplunkAlertID { arg } {
         if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
 
                  # Launch browser
-            exec $BROWSER_PATH https://lwbspl01094p08:8000/en-US/app/cirta/sguil_client?form.selAlertID=$sensorID.$cnxID&form.selHost1=$ipAddr1&form.selHost2=$ipAddr2&form.selPort1=$ipPort1&form.selPort2=$ipPort2&form.selSignature=$eventMsg&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
+            exec $BROWSER_PATH https://:8000/en-US/app/cirta/sguil_client?form.selAlertID=$sensorID.$cnxID&form.selHost1=$ipAddr1&form.selHost2=$ipAddr2&form.selPort1=$ipPort1&form.selPort2=$ipPort2&form.selSignature=$eventMsg&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
 
         } else {
 
@@ -1260,7 +1260,7 @@ proc SplunkIPQuery { side } {
         if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
 
             # Launch browser
-        exec $BROWSER_PATH https://lwbspl01094p08:8000/en-US/app/cirta/sguil_client?form.selHost1=$ipAddr1&form.selHost2=$ipAddr2&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
+        exec $BROWSER_PATH https://:8000/en-US/app/cirta/sguil_client?form.selHost1=$ipAddr1&form.selHost2=$ipAddr2&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
 
         } else {
 
@@ -1300,7 +1300,7 @@ proc SplunkPortQuery { arg } {
         if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
 
             # Launch browser
-        exec $BROWSER_PATH https://lwbspl01094p08:8000/en-US/app/cirta/sguil_client?form.selPort1=$ipPort1&form.selPort2=$ipPort2&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
+        exec $BROWSER_PATH https://:8000/en-US/app/cirta/sguil_client?form.selPort1=$ipPort1&form.selPort2=$ipPort2&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
 
         } else {
 
@@ -1330,7 +1330,7 @@ proc SplunkSigQuery {} {
         if {[file exists $BROWSER_PATH] && [file executable $BROWSER_PATH]} {
 
             # Launch browser
-        exec $BROWSER_PATH https://lwbspl01094p08:8000/en-US/app/cirta/sguil_client?form.selSignature=$eventMsg&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
+        exec $BROWSER_PATH https://:8000/en-US/app/cirta/sguil_client?form.selSignature=$eventMsg&form.selTime.earliest=$starttime&form.selTime.latest=$endtime &
 
         } else {
 
